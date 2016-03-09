@@ -1,4 +1,5 @@
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.StatusLine;
 import org.apache.http.client.ClientProtocolException;
@@ -18,6 +19,7 @@ import org.apache.http.util.EntityUtils;
 import javax.net.ssl.SSLContext;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,7 +29,6 @@ import java.util.List;
 public class InstanceRequesterImpl {
 
     CloseableHttpClient httpclient;
-    BasicCookieStore cookieJar;
     String jiveURL;
     Credentials credentials = new Credentials();
 
@@ -36,10 +37,6 @@ public class InstanceRequesterImpl {
 
     }
 
-
-    public void sendTest() {
-        this.test_request();
-    }
 
     private void test_request() {
 
@@ -93,9 +90,11 @@ public class InstanceRequesterImpl {
 
     public void buildRequest() {
 
-        String requestURL = jiveURL + "/";
+        String requestURLbase = jiveURL + "/api/core/v3/contents"; //Events are created from the events API endpoint
 
-        HttpPost postRequest = new HttpPost(requestURL);
+       // requestURLbase + ""
+
+        HttpPost postRequest = new HttpPost(requestURLbase);
 
     }
 
@@ -106,12 +105,24 @@ public class InstanceRequesterImpl {
 
             CloseableHttpClient httpclient = HttpClients.createDefault();
 
-            CloseableHttpResponse response1 = httpclient.execute(postRequest);
+            CloseableHttpResponse postResponse = httpclient.execute(postRequest);
+
+            try {
+                System.out.println(postResponse.getStatusLine());
+                if (postResponse.getStatusLine().getStatusCode() != 200) {
+                    //failed
+                }
+            }
+            finally {
+
+                postResponse.close();
+            }
 
         }
         catch (IOException ioe) {
 
             System.out.println("Error POST-ing request : " +ioe.getMessage());
+
         }
     }
 }
