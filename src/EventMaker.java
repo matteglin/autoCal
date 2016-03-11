@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Iterator;
+import java.util.Random;
 
 /**
  * Created by matt.eglin on 29/02/2016.
@@ -88,7 +89,24 @@ public class EventMaker {
     }
 
     //Internal method to randomise the order of the Arraylist?
-    private void randomise(){
+    private ArrayList<String> getPairings(){
+
+        ArrayList<String> originalPairings = new ArrayList<String>(pairings);
+        ArrayList<String> newPairings = new ArrayList<String>();
+
+        Random rand = new Random();
+        int x = originalPairings.size();
+
+        while ( x!=0) {
+
+            int index = rand.nextInt(x);
+
+            newPairings.add(originalPairings.remove(index));
+            x--;
+
+        }
+
+        return newPairings;
 
     }
 
@@ -118,18 +136,15 @@ public class EventMaker {
         }
     }
 
-    public void runPDFTest(){
-        this.createPDF();
-    }
+    private void drawCalendar(PDDocument targetDoc, int months_to_generate, ArrayList<Integer> days_to_event_on) {
 
-    private void drawCalendar(PDDocument targetDoc) {
+        Iterator<String> pairingIterator = this.getPairings().iterator();
+        Calendar localCal = Calendar.getInstance();
+        localCal.set(Calendar.DAY_OF_MONTH, 1); //start at the first day of the current month
 
-        Iterator<String> pairingIterator = pairings.iterator();
+        //Iterate for x months
+        for (int monthInt=1;monthInt<=months_to_generate;monthInt++) {
 
-        //Iterate for 12 months
-        for (int monthInt=0;monthInt<=11;monthInt++) {
-
-            Calendar localCal = Calendar.getInstance();
 
             float tableWidth;
             float tableHeight;
@@ -152,6 +167,13 @@ public class EventMaker {
             tableHeight = mediaBox.getHeight() - 20f;
             tableWidth = mediaBox.getWidth() - 20f;
 
+            Calendar monthCal = (Calendar)localCal.clone();
+
+            monthCal.set(Calendar.DAY_OF_MONTH, 1); //start at the first day of the current month
+
+            int start_day_of_week = localCal.get(Calendar.DAY_OF_WEEK); //First day of the month falls on a...
+
+
             try {
 
                 PDPageContentStream contentStream = new PDPageContentStream(targetDoc, page);
@@ -160,33 +182,32 @@ public class EventMaker {
 
                 contentStream.setStrokingColor(Color.BLACK);
 
+
                 //Add Week boxes
 
-                int weeks = 4;
+                int weeks = monthCal.getActualMaximum(Calendar.WEEK_OF_MONTH);
 
-                ArrayList<Integer> eventDays = new ArrayList();
-                eventDays.add(new Integer(3));
+                System.out.println("Weeks = " + weeks);
 
-                eventDays.add(new Integer(5));
+                ArrayList<Integer> eventDays = new ArrayList(days_to_event_on);
+
 
 
                 for (int x = 100; x <= 700; x += 100) {
+
                     //days in the week
-                    for (int y = 100; y <= (weeks * 100); y += 100) {
+                    int y_rect_pos = 20;
+                    for (int y = 1; y <= 5; y += 1) {
 
                         //number of weeks
-                        contentStream.addRect(x, y, 100, 100);
-                        if (!pairingIterator.hasNext()) {
-                            pairingIterator = pairings.iterator(); //If we're empty, re-initialise the pairngs
-                        }
-                        //Need to add parings every selected day
-                        if (eventDays.contains(new Integer(x / 100))) {
-                            contentStream.beginText();
-                            contentStream.setFont(font, 10);
-                            contentStream.moveTextPositionByAmount(x + 5, y + 50);
-                            contentStream.drawString(pairingIterator.next().toString()); //Draw in a pairing
-                            contentStream.endText();
-                        }
+
+                        y_rect_pos+=75;
+
+                        contentStream.addRect(x, y_rect_pos, 100, 75);
+
+
+
+
 
 
                     }
@@ -195,26 +216,78 @@ public class EventMaker {
                     contentStream.moveTextPositionByAmount(x + 5, 520);
                     contentStream.drawString(new DateFormatSymbols().getWeekdays()[(x / 100)]);
                     contentStream.endText();
-
-
                 }
-                //drawCalendarGrid();
+                //draw month name
                 contentStream.beginText();
                 contentStream.setFont(font, 16);
                 contentStream.moveTextPositionByAmount(10, 550);
-                contentStream.drawString(new DateFormatSymbols().getMonths()[localCal.MONTH]);
-
+                System.out.println(monthCal.toString());
+                contentStream.drawString(new DateFormatSymbols().getMonths()[monthCal.get(Calendar.MONTH)] + " " + String.valueOf(monthCal.get(Calendar.YEAR)));
                 contentStream.endText();
 
+                //Draw day numbers
+                int x_pos = 110;
+                int y_pos = 450;
+                boolean start_day_count = false;
+                int day_to_start_on = monthCal.get(Calendar.DAY_OF_WEEK);
+                int count_days_for_week = 0;
+                int total_day_count = 0;
+                boolean month_finished = false;
+                int day_count = 0;
+
+                while (!month_finished) {
+                     day_count++;
+                        //Draw date number in rect
+                        if ((start_day_count == false) && (day_to_start_on == day_count) && (month_finished == false)) {
+                            start_day_count = true;
+                        }
+                        //Add date number
+                        if (start_day_count && !month_finished) {
+
+                            contentStream.beginText();
+                            contentStream.setFont(font, 10);
+                            contentStream.moveTextPositionByAmount(x_pos, y_pos);
+                            contentStream.drawString(String.valueOf(monthCal.get(Calendar.DAY_OF_MONTH)));
+                            contentStream.endText();
+                            total_day_count++;
+                            if (!pairingIterator.hasNext()) {
+                                pairingIterator = this.getPairings().iterator(); //If we're empty, get new random Arraylist
+                            }
+                            //Need to add parings every selected day
+                            if (eventDays.contains(new Integer(monthCal.get(Calendar.DAY_OF_WEEK)))) {
+
+                                contentStream.beginText();
+                                contentStream.setFont(font, 10);
+                                contentStream.moveTextPositionByAmount(x_pos + 5, y_pos - 20);
+                                contentStream.drawString(pairingIterator.next().toString()); //Draw in a pairing
+                                contentStream.endText();
+                            }
+                            if (total_day_count >= monthCal.getActualMaximum(Calendar.DAY_OF_MONTH)) {
+                                //We've moved months so stop writing numbers
+                                start_day_count = false;
+                                month_finished = true;
+                            }
+                            monthCal.add(Calendar.DAY_OF_MONTH, 1);
+
+                        }
+
+                        x_pos += 100;
+                        count_days_for_week++;
+                        if (count_days_for_week == 7) {
+                            y_pos -= 75;
+                            count_days_for_week = 0;
+                            x_pos = 110;
+                    }
+                }
+                // Done - draw out and close
                 contentStream.closeAndStroke();
                 contentStream.close();
-
 
             }
             catch (IOException ioe) {
                 //Failed to write out to PDF
             }
-            //Finally, move to the next month
+
             localCal.add(Calendar.MONTH, 1);
         }
 
@@ -226,7 +299,7 @@ public class EventMaker {
 
 
 
-    private void createPDF() {
+    public void createPDF(int months_to_generate,ArrayList<Integer> days_to_event_on, String fileOutput) {
 
         if (this.pairings.isEmpty()) {
             this.createPairings();
@@ -235,17 +308,19 @@ public class EventMaker {
 
         PDDocument outputDocument = new PDDocument();
 
-        drawCalendar(outputDocument);
+        drawCalendar(outputDocument,months_to_generate,days_to_event_on);
 
 
         try {
 
-            outputDocument.save("/Users/matt.eglin/Desktop/Test.pdf");
+            outputDocument.save(fileOutput);
 
             outputDocument.close();
         }
         catch (IOException ioe) {
             //ooops
+            System.out.println("Unable to comply - I/O Exception");
+            System.out.println(ioe.getMessage());
         }
         catch (COSVisitorException cve) {
             //double oops
